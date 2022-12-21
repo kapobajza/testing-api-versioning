@@ -1,48 +1,33 @@
-import axios, { AxiosInstance } from "axios";
+import axios from "axios";
 
-import { QueryParams, MutationRequestParams, RequestParams } from "./types";
+import {
+  QueryParams,
+  MutationRequestParams,
+  RequestParams,
+  CreateBaseApiFactoryFn,
+} from "./types";
 
-export abstract class BaseApi {
-  private client: AxiosInstance;
-  private apiUnversionedPath = "https://jsonplaceholder.typicode.com";
+const __API_UNVERSIONED_PATH__ = "https://jsonplaceholder.typicode.com";
 
-  private getVersionedApiUrl = (version: "v1" | "v2" | "v3" | undefined) => {
-    return `${this.apiUnversionedPath}${version ? `/${version}` : ``}`;
-  };
+const getRouteWithPrefix = (
+  route: string | undefined,
+  routePrefix?: string
+) => {
+  let finalRoute = "";
 
-  constructor(protected routePrefix?: string, version?: "v1" | "v2" | "v3") {
-    this.routePrefix = routePrefix;
-    this.client = axios.create({
-      // Versioned URL
-      baseURL: this.getVersionedApiUrl(version),
-      // Non-version URL
-      // baseURL: this.apiUnversionedPath,
-    });
-
-    this.client.interceptors.request.use((config) => {
-      const uri = axios.getUri(config);
-      console.log("-------uri-------");
-      console.log(uri);
-      console.log("-------uri-------\n");
-      return config;
-    });
+  if (routePrefix) {
+    finalRoute += `${routePrefix}${route ? "/" : ""}`;
   }
 
-  private getRouteWithPrefix(route: string | undefined) {
-    let finalRoute = "";
-
-    if (this.routePrefix) {
-      finalRoute += `${this.routePrefix}${route ? "/" : ""}`;
-    }
-
-    if (route) {
-      finalRoute += route;
-    }
-
-    return finalRoute;
+  if (route) {
+    finalRoute += route;
   }
 
-  private getQueryParams(params: QueryParams | undefined) {
+  return finalRoute;
+};
+
+const getApiRequestHelperFactory = (routePrefix: string | undefined) => {
+  const getQueryParams = (params: QueryParams | undefined) => {
     if (params) {
       const { limit, page, order, sort, ...otherParams } = params || {};
 
@@ -60,90 +45,112 @@ export abstract class BaseApi {
         _sort,
       };
     }
-  }
+  };
 
-  private getRequestParams<RequestBody = any>(
-    paramsOrRoute?: RequestParams<RequestBody>,
-    params?: MutationRequestParams<RequestBody>
-  ) {
-    let finalParams: MutationRequestParams = {
-      route: this.routePrefix,
-      body: undefined,
-      options: undefined,
+  return {
+    getRequestParams: <RequestBody = any>(
+      paramsOrRoute?: RequestParams<RequestBody>,
+      params?: MutationRequestParams<RequestBody>
+    ) => {
+      let finalParams: MutationRequestParams = {
+        route: routePrefix,
+        body: undefined,
+        options: undefined,
+      };
+
+      if (typeof paramsOrRoute === "string") {
+        finalParams = {
+          route: getRouteWithPrefix(paramsOrRoute),
+          body: params?.body,
+          options: params?.options,
+          queryParams: getQueryParams(params?.queryParams),
+        };
+      } else if (typeof paramsOrRoute === "object") {
+        finalParams = {
+          route: getRouteWithPrefix(paramsOrRoute.route),
+          body: paramsOrRoute?.body,
+          options: paramsOrRoute?.options,
+          queryParams: getQueryParams(paramsOrRoute?.queryParams),
+        };
+      }
+
+      return finalParams;
+    },
+  };
+};
+
+export const createBaseApi: CreateBaseApiFactoryFn = (version) => {
+  const client = axios.create({
+    // Versioned URL
+    baseURL: `${__API_UNVERSIONED_PATH__}${version ? `/${version}` : ""}`,
+    // Non-version URL
+    // baseURL: apiUnversionedPath,
+  });
+
+  client.interceptors.request.use((config) => {
+    const uri = axios.getUri(config);
+    console.log("-------uri-------");
+    console.log(uri);
+    console.log("-------uri-------\n");
+  });
+
+  return (routePrefix?: string) => {
+    const { getRequestParams } = getApiRequestHelperFactory(routePrefix);
+
+    return {
+      get: async <ResponseData>(
+        paramsOrRoute?: RequestParams,
+        params?: Omit<MutationRequestParams<any>, "body">
+      ) => {
+        const {
+          route = "",
+          options,
+          queryParams,
+        } = getRequestParams(paramsOrRoute, params);
+
+        const { data } = await client.get<ResponseData>(route, {
+          ...(options ?? {}),
+          params: queryParams,
+        });
+
+        return data;
+      },
+
+      post: async <RequestBody = any>(
+        paramsOrRoute?: RequestParams<RequestBody> | string,
+        params?: MutationRequestParams
+      ) => {
+        const {
+          route = "",
+          options,
+          body,
+        } = getRequestParams(paramsOrRoute, params);
+        const { data } = await client.post<RequestBody>(route, body, options);
+        return data;
+      },
+
+      put: async <RequestBody = any>(
+        paramsOrRoute?: RequestParams | string,
+        params?: MutationRequestParams
+      ) => {
+        const {
+          route = "",
+          options,
+          body,
+        } = getRequestParams(paramsOrRoute, params);
+        const { data } = await client.put<RequestBody>(route, body, options);
+        return data;
+      },
+
+      delete: async (
+        paramsOrRoute?: RequestParams | string,
+        params?: MutationRequestParams
+      ) => {
+        const { route = "", options } = getRequestParams(paramsOrRoute, params);
+
+        const { data } = await client.delete(route, options);
+        return data;
+      },
     };
-
-    if (typeof paramsOrRoute === "string") {
-      finalParams = {
-        route: this.getRouteWithPrefix(paramsOrRoute),
-        body: params?.body,
-        options: params?.options,
-        queryParams: this.getQueryParams(params?.queryParams),
-      };
-    } else if (typeof paramsOrRoute === "object") {
-      finalParams = {
-        route: this.getRouteWithPrefix(paramsOrRoute.route),
-        body: paramsOrRoute?.body,
-        options: paramsOrRoute?.options,
-        queryParams: this.getQueryParams(paramsOrRoute?.queryParams),
-      };
-    }
-
-    return finalParams;
-  }
-
-  async getRequest<ResponseData>(
-    paramsOrRoute?: RequestParams,
-    params?: Omit<MutationRequestParams<any>, "body">
-  ) {
-    const {
-      route = "",
-      options,
-      queryParams,
-    } = this.getRequestParams(paramsOrRoute, params);
-
-    const { data } = await this.client.get<ResponseData>(route, {
-      ...(options ?? {}),
-      params: queryParams,
-    });
-
-    return data;
-  }
-
-  async postRequest<RequestBody = any>(
-    paramsOrRoute?: RequestParams<RequestBody> | string,
-    params?: MutationRequestParams
-  ) {
-    const {
-      route = "",
-      options,
-      body,
-    } = this.getRequestParams(paramsOrRoute, params);
-    const { data } = await this.client.post<RequestBody>(route, body, options);
-    return data;
-  }
-
-  async putRequest<RequestBody = any>(
-    paramsOrRoute?: RequestParams | string,
-    params?: MutationRequestParams
-  ) {
-    const {
-      route = "",
-      options,
-      body,
-    } = this.getRequestParams(paramsOrRoute, params);
-    const { data } = await this.client.put<RequestBody>(route, body, options);
-    return data;
-  }
-
-  async deleteRequest(
-    paramsOrRoute?: RequestParams | string,
-    params?: MutationRequestParams
-  ) {
-    const { route = "", options } = this.getRequestParams(
-      paramsOrRoute,
-      params
-    );
-    const { data } = await this.client.delete(route, options);
-    return data;
-  }
-}
+  };
+};

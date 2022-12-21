@@ -1,5 +1,9 @@
-import { BaseApi } from "./baseApi";
-import { ApiClient, ApiClientV1, ApiClientV2, ApiClientV3 } from "./client";
+import {
+  createApiClient,
+  createApiClientV2,
+  createApiClientV3,
+} from "./client";
+import { ApiClient } from "./types";
 
 type Todo = {
   userId: number;
@@ -9,22 +13,22 @@ type Todo = {
 };
 
 // Will resolve to `https://{baseUrl}/todos`
-const todoRepositoryUnversioned = new ApiClient("todos");
+const todoRepositoryUnversioned = createApiClient("todos");
 
 // Will resolve to `https://{baseUrl}/v1/todos`
-const todoRepositoryV1 = new ApiClientV1("todos");
+const todoRepositoryV1 = createApiClientV2("todos");
 
 // Will resolve to `https://{baseUrl}/v2/todos`
-const todoRepositoryV2 = new ApiClientV2("todos");
+const todoRepositoryV2 = createApiClientV2("todos");
 
 // Will resolve to `https://{baseUrl}/v3/todos`
-const todoRepositoryV3 = new ApiClientV3("todos");
+const todoRepositoryV3 = createApiClientV3("todos");
 
-const getTodos = async (repo: BaseApi) => {
+const getTodos = async (repo: ApiClient) => {
   let todos: Todo[] = [];
 
   try {
-    todos = await repo.getRequest<Todo[]>({
+    todos = await repo.get<Todo[]>({
       queryParams: {
         limit: 1,
       },

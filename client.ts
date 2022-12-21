@@ -1,25 +1,9 @@
-import { BaseApi } from "./baseApi";
+import { createBaseApi } from "./baseApi";
 
-export class ApiClient extends BaseApi {
-  constructor(routePrefix?: string) {
-    super(routePrefix);
-  }
-}
+export const createApiClient = createBaseApi();
 
-export class ApiClientV1 extends BaseApi {
-  constructor(routePrefix?: string) {
-    super(routePrefix, "v1");
-  }
-}
+export const createApiClientV1 = createBaseApi("v1");
 
-export class ApiClientV2 extends BaseApi {
-  constructor(routePrefix?: string) {
-    super(routePrefix, "v2");
-  }
-}
+export const createApiClientV2 = createBaseApi("v2");
 
-export class ApiClientV3 extends BaseApi {
-  constructor(routePrefix?: string) {
-    super(routePrefix, "v3");
-  }
-}
+export const createApiClientV3 = createBaseApi("v3");
