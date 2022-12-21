@@ -1,5 +1,6 @@
 import {
   createApiClient,
+  createApiClientV1,
   createApiClientV2,
   createApiClientV3,
 } from "./client";
@@ -16,7 +17,7 @@ type Todo = {
 const todoRepositoryUnversioned = createApiClient("todos");
 
 // Will resolve to `https://{baseUrl}/v1/todos`
-const todoRepositoryV1 = createApiClientV2("todos");
+const todoRepositoryV1 = createApiClientV1("todos");
 
 // Will resolve to `https://{baseUrl}/v2/todos`
 const todoRepositoryV2 = createApiClientV2("todos");

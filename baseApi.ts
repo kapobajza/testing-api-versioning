@@ -26,57 +26,24 @@ const getRouteWithPrefix = (
   return finalRoute;
 };
 
-const getApiRequestHelperFactory = (routePrefix: string | undefined) => {
-  const getQueryParams = (params: QueryParams | undefined) => {
-    if (params) {
-      const { limit, page, order, sort, ...otherParams } = params || {};
+const getQueryParams = (params: QueryParams | undefined) => {
+  if (params) {
+    const { limit, page, order, sort, ...otherParams } = params || {};
 
-      let _sort: string | undefined = undefined;
+    let _sort: string | undefined = undefined;
 
-      if (sort) {
-        _sort = sort.join(",");
-      }
-
-      return {
-        ...otherParams,
-        _limit: params.limit,
-        _page: params.page,
-        _order: params.order,
-        _sort,
-      };
+    if (sort) {
+      _sort = sort.join(",");
     }
-  };
 
-  return {
-    getRequestParams: <RequestBody = any>(
-      paramsOrRoute?: RequestParams<RequestBody>,
-      params?: MutationRequestParams<RequestBody>
-    ) => {
-      let finalParams: MutationRequestParams = {
-        route: routePrefix,
-        body: undefined,
-        options: undefined,
-      };
-
-      if (typeof paramsOrRoute === "string") {
-        finalParams = {
-          route: getRouteWithPrefix(paramsOrRoute),
-          body: params?.body,
-          options: params?.options,
-          queryParams: getQueryParams(params?.queryParams),
-        };
-      } else if (typeof paramsOrRoute === "object") {
-        finalParams = {
-          route: getRouteWithPrefix(paramsOrRoute.route),
-          body: paramsOrRoute?.body,
-          options: paramsOrRoute?.options,
-          queryParams: getQueryParams(paramsOrRoute?.queryParams),
-        };
-      }
-
-      return finalParams;
-    },
-  };
+    return {
+      ...otherParams,
+      _limit: params.limit,
+      _page: params.page,
+      _order: params.order,
+      _sort,
+    };
+  }
 };
 
 export const createBaseApi: CreateBaseApiFactoryFn = (version) => {
@@ -89,13 +56,41 @@ export const createBaseApi: CreateBaseApiFactoryFn = (version) => {
 
   client.interceptors.request.use((config) => {
     const uri = axios.getUri(config);
-    console.log("-------uri-------");
+    console.log(`-------uri${version ? `-${version}` : ""}-------`);
     console.log(uri);
-    console.log("-------uri-------\n");
+    console.log(`-------uri${version ? `-${version}` : ""}-------\n`);
+    return config;
   });
 
   return (routePrefix?: string) => {
-    const { getRequestParams } = getApiRequestHelperFactory(routePrefix);
+    const getRequestParams = <RequestBody = any>(
+      paramsOrRoute?: RequestParams<RequestBody>,
+      params?: MutationRequestParams<RequestBody>
+    ) => {
+      let finalParams: MutationRequestParams = {
+        route: routePrefix,
+        body: undefined,
+        options: undefined,
+      };
+
+      if (typeof paramsOrRoute === "string") {
+        finalParams = {
+          route: getRouteWithPrefix(paramsOrRoute, routePrefix),
+          body: params?.body,
+          options: params?.options,
+          queryParams: getQueryParams(params?.queryParams),
+        };
+      } else if (typeof paramsOrRoute === "object") {
+        finalParams = {
+          route: getRouteWithPrefix(paramsOrRoute.route, routePrefix),
+          body: paramsOrRoute?.body,
+          options: paramsOrRoute?.options,
+          queryParams: getQueryParams(paramsOrRoute?.queryParams),
+        };
+      }
+
+      return finalParams;
+    };
 
     return {
       get: async <ResponseData>(
